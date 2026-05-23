@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KSP Admin</title>
+
+  <!--
+  ============================================
+  GitHub Pages / InfinityFree file structure:
+    repo-root/
+      admin.html   <- this file
+      admin.css
+      admin.js
+  File names are case-sensitive on GitHub Pages.
+  All names lowercase -- no spaces.
+  ============================================
+  -->
+
+  <!-- CSS first -- page renders styled immediately -->
+  <link rel="stylesheet" href="admin.css"/>
+
+  <!-- Font Awesome with 3-CDN fallback -->
+  <link
+    id="fa-admin"
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    crossorigin="anonymous"
+    onerror="faAdminFallback()"
+  />
+  <script>
+    var _faAdminIdx = 0;
+    var _faAdminSrcs = [
+      'https://use.fontawesome.com/releases/v6.5.0/css/all.css',
+      'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css'
+    ];
+    function faAdminFallback(){
+      if(_faAdminIdx >= _faAdminSrcs.length) return;
+      document.getElementById('fa-admin').href = _faAdminSrcs[_faAdminIdx++];
+    }
+  </script>
+
+  <!-- Google Fonts -- optional, system fonts fallback if fails -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
+    rel="stylesheet"
+    onerror="console.warn('Google Fonts failed')"
+  />
+
+  <!--
+  Firebase Compat SDKs -- Firestore + Storage only
+  NO firebase-auth needed in admin (no login)
+  NOTE: Jitsi is NOT loaded here -- causes blank page on GitHub Pages.
+        It is lazy-loaded in admin.js only when video call starts.
+  -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+</head>
+<body>
+
+<!-- ============== ADMIN PANEL ============== -->
+<div id="adminPanel">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="sidebar-brand">
+        <div class="brand-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
+            <path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">KSP Clinic</div>
+          <div class="brand-sub">Admin Dashboard</div>
+        </div>
+      </div>
+      <button class="sb-close" type="button" onclick="closeSidebar()" aria-label="Close sidebar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" type="button" onclick="switchTab('dashboard',this)">
+        <i class="fa-solid fa-chart-pie"></i> Dashboard
+      </button>
+      <button class="nav-item" type="button" onclick="switchTab('offline',this)">
+        <i class="fa-solid fa-hospital-user"></i> Offline Appointments
+        <span class="nav-badge" id="offlineBadge" style="display:none">0</span>
+      </button>
+      <button class="nav-item" type="button" onclick="switchTab('online',this)">
+        <i class="fa-solid fa-video"></i> Online Consultations
+        <span class="nav-badge" id="onlineBadge" style="display:none">0</span>
+      </button>
+      <button class="nav-item" type="button" onclick="switchTab('users',this)">
+        <i class="fa-solid fa-users"></i> Users
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="admin-tag">
+        <div class="admin-av"><i class="fa-solid fa-user-shield"></i></div>
+        <div>
+          <div class="admin-name">Dr. Aejaz Kotwal</div>
+          <div class="admin-role">Administrator</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Mobile overlay -->
+  <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-wrap">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <button class="hamburger" type="button" onclick="openSidebar()" aria-label="Open menu">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <h2 class="topbar-title" id="topbarTitle">Dashboard</h2>
+      <div class="topbar-badge"><i class="fa-solid fa-user-shield"></i></div>
+    </header>
+
+    <!-- -- TAB: DASHBOARD -- -->
+    <section class="tab active" id="tab-dashboard">
+      <div class="tab-scroll">
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-ico ic-users"><i class="fa-solid fa-users"></i></div>
+            <div><div class="sn" id="sUsers">0</div><div class="sl">Total Users</div></div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-ico ic-total"><i class="fa-solid fa-calendar-days"></i></div>
+            <div><div class="sn" id="sTotal">0</div><div class="sl">Total Bookings</div></div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-ico ic-pending"><i class="fa-solid fa-hourglass-half"></i></div>
+            <div><div class="sn" id="sPending">0</div><div class="sl">Pending</div></div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-ico ic-payment"><i class="fa-solid fa-money-bill"></i></div>
+            <div><div class="sn" id="sPayment">0</div><div class="sl">Awaiting Payment</div></div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-ico ic-approved"><i class="fa-solid fa-circle-check"></i></div>
+            <div><div class="sn" id="sApproved">0</div><div class="sl">Approved</div></div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-ico ic-completed"><i class="fa-solid fa-star"></i></div>
+            <div><div class="sn" id="sCompleted">0</div><div class="sl">Completed</div></div>
+          </div>
+        </div>
+        <div class="sec-title">Recent Activity</div>
+        <div id="recentList" class="table-wrap">
+          <div class="empty-msg"><i class="fa-solid fa-hourglass-half"></i><p>Loading data...</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- -- TAB: OFFLINE -- -->
+    <section class="tab" id="tab-offline">
+      <div class="tab-scroll">
+        <div class="filter-row">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="offSearch" placeholder="Search name, email, ID..." oninput="filterList('offline')"/>
+          </div>
+          <div class="filter-grp">
+            <input type="date" id="offDate" onchange="filterList('offline')"/>
+            <select id="offStatus" onchange="filterList('offline')">
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+        </div>
+        <div id="offlineList" class="table-wrap">
+          <div class="empty-msg"><i class="fa-solid fa-hourglass-half"></i><p>Loading...</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- -- TAB: ONLINE -- -->
+    <section class="tab" id="tab-online">
+      <div class="tab-scroll">
+        <div class="filter-row">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="onSearch" placeholder="Search name, email, ID..." oninput="filterList('online')"/>
+          </div>
+          <div class="filter-grp">
+            <input type="date" id="onDate" onchange="filterList('online')"/>
+            <select id="onStatus" onchange="filterList('online')">
+              <option value="">All Status</option>
+              <option value="payment_uploaded">Payment Uploaded</option>
+              <option value="pending_approval">Pending Approval</option>
+              <option value="approved">Approved</option>
+              <option value="completed">Completed</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+        </div>
+        <div id="onlineList" class="table-wrap">
+          <div class="empty-msg"><i class="fa-solid fa-hourglass-half"></i><p>Loading...</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- -- TAB: USERS -- -->
+    <section class="tab" id="tab-users">
+      <div class="tab-scroll">
+        <div id="userGrid" class="user-grid">
+          <div class="empty-msg" style="grid-column:1/-1">
+            <i class="fa-solid fa-users"></i><p>Loading users...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /.main-wrap -->
+</div><!-- /#adminPanel -->
+
+<!-- DETAIL MODAL -->
+<div class="modal-bg" id="modal" onclick="bgClose(event)" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <button class="modal-x" type="button" onclick="closeModal()" aria-label="Close">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- VIDEO MODAL -->
+<div class="modal-bg" id="videoModal" onclick="bgCloseVideo(event)" role="dialog" aria-modal="true">
+  <div class="modal-box video-modal-box">
+    <button class="modal-x" type="button" onclick="closeVideoModal()" aria-label="Close">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="video-modal-title"><i class="fa-solid fa-video"></i> Video Consultation</div>
+    <div id="adminJitsi" style="width:100%;height:460px;border-radius:12px;overflow:hidden;background:#111;
+      display:flex;align-items:center;justify-content:center;color:#fff;font-size:.9rem;">
+      Connecting video...
+    </div>
+    <div class="video-controls-admin">
+      <button class="vc-btn" type="button" onclick="adminToggleMic()" aria-label="Toggle mic">
+        <i class="fa-solid fa-microphone" id="adminMicIcon"></i>
+      </button>
+      <button class="vc-btn end-btn" type="button" onclick="adminEndCall()" aria-label="End call">
+        <i class="fa-solid fa-phone-slash"></i>
+      </button>
+      <button class="vc-btn" type="button" onclick="adminToggleCam()" aria-label="Toggle camera">
+        <i class="fa-solid fa-video" id="adminCamIcon"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="adminToast" role="alert" aria-live="assertive"></div>
+
+<!-- Admin script loaded LAST -- after all DOM is ready -->
+<script src="admin.js"></script>
+
+</body>
+</html>
